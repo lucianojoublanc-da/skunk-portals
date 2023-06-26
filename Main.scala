@@ -3,7 +3,6 @@ import skunk._
 import skunk.implicits._
 import skunk.codec.all._
 import natchez.Trace.Implicits.noop
-import fs2.Stream
 
 object Hello extends IOApp {
 
@@ -18,13 +17,13 @@ object Hello extends IOApp {
 
   def run(args: List[String]): IO[ExitCode] =
     session.use { s =>
-      Stream(makeQuery(s), makeQuery(s)).parJoinUnbounded.compile.drain
-        .as(ExitCode.Success)
+      import cats.syntax.all._
+      (makeQuery(s), makeQuery(s)).parMapN{ case _ => ExitCode.Success }
     }
 
   def makeQuery(session: Session[IO]) =
     for {
-      p <- Stream.eval(session.prepare(sql"select current_date".query(date)))
-      d <- p.stream(Void, 1)
+      p <- session.prepare(sql"select current_date".query(date))
+      d <- p.unique(Void)
     } yield ()
 }
